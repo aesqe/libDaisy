@@ -1,5 +1,15 @@
-// TODO: make this adjustable
+/** Maximum size, in bytes, of a SysEx message payload in a MidiEvent.
+ *
+ *  Defaults to 128; override at build time (e.g. -DSYSEX_BUFFER_LEN=16) to
+ *  trade SysEx capacity for RAM. Every MidiEvent embeds a buffer of this
+ *  size, so queues of MidiEvents (e.g. MidiHandler's FIFO<MidiEvent, 256>)
+ *  scale with it. The value must be identical in every translation unit
+ *  linked together, including libDaisy's own build -- mixed values change
+ *  sizeof(MidiEvent) across the library boundary.
+ */
+#ifndef SYSEX_BUFFER_LEN
 #define SYSEX_BUFFER_LEN 128
+#endif
 
 namespace daisy
 {
