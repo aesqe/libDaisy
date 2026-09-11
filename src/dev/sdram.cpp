@@ -154,8 +154,48 @@ SdramHandle::Result SdramHandle::DeviceInit()
     /* Send the command */
     HAL_SDRAM_SendCommand(&dsy_sdram.hsdram, &Command, 0x1000);
 
-    //HAL_SDRAM_ProgramRefreshRate(hsdram, 0x56A - 20);
-    HAL_SDRAM_ProgramRefreshRate(&dsy_sdram.hsdram, 0x81A - 20);
+    /* Step 8: Program the refresh timer (RM0433 22.9.5, FMC_SDRTR COUNT).
+     *
+     * The whole array has to be refreshed every tREF, so one row's refresh
+     * interval is tREF / rows, and COUNT is that interval measured in SDRAM
+     * clock cycles, less ST's 20-cycle margin for a refresh request that
+     * arrives while a read has already been accepted.
+     *
+     *   SDCLK   100 MHz  fmc_ker_ck is PLL2R at 200 MHz (sys/system.cpp),
+     *                    halved by FMC_SDRAM_CLOCK_PERIOD_2 set above
+     *   rows    8192     FMC_SDRAM_ROW_BITS_NUM_13 set above
+     *   tREF    64 ms    AS4C16M32MSA, the part on the Daisy Seed
+     *
+     *   COUNT = (64 ms / 8192) * 100 MHz - 20
+     *         = 7.8125 us * 100 MHz - 20
+     *         = 781 - 20
+     *         = 761
+     *
+     * THIS WAS 0x81A - 20 = 2054, AND 2054 IS 2.7x TOO SLOW. At that count a
+     * row waits 20.55 us between refreshes and the array takes 168 ms to walk,
+     * against the 64 ms the part is specified to hold data for. The margin was
+     * not thin, it was negative.
+     *
+     * Nothing visibly failed, which is why it survived: these parts hold data
+     * far past spec at room temperature, and most Daisy programs overwrite
+     * their SDRAM continuously anyway. The exposure is a program that STORES
+     * something there and leaves it -- a looper or a sampler holding minutes of
+     * audio -- on a board that has warmed up. A row that nothing reads or
+     * writes is refreshed only by this timer.
+     *
+     * The old value predates the PLL2 change above it (the "New Timing" block
+     * in sys/system.cpp), which is how a hand-typed literal came to disagree
+     * with the clock it was derived from. The arithmetic is spelled out here
+     * so the next clock change has something to recompute against. A second
+     * dead literal, 0x56A - 20, sat commented out above this line and is gone
+     * with it -- it was wrong by a different factor.
+     *
+     * Costs about 82 extra AUTO REFRESH commands per 1 ms audio block, each
+     * blocking the array for RowCycleDelay (8 SDCLK, 80 ns): an upper bound of
+     * ~0.7% of a 480,000-cycle block, and only where the CPU actually stalls
+     * on SDRAM. It buys retention, it does not buy speed.
+     */
+    HAL_SDRAM_ProgramRefreshRate(&dsy_sdram.hsdram, 761);
     return Result::OK;
 }
 
