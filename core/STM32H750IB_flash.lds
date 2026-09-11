@@ -122,6 +122,19 @@ SECTIONS
 
 	PROVIDE(end = .);
 
+	.axisram_bss (NOLOAD) :
+	{
+		. = ALIGN(32);
+		_saxisram_bss = .;
+
+		PROVIDE(__axisram_bss_start__ = _saxisram_bss);
+		*(.axisram_bss)
+		*(.axisram_bss*)
+		. = ALIGN(32);
+		_eaxisram_bss = .;
+
+		PROVIDE(__axisram_bss_end__ = _eaxisram_bss);
+	} > SRAM
 	.dtcmram_bss (NOLOAD) :
 	{
 		. = ALIGN(4);
