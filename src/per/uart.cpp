@@ -1026,11 +1026,37 @@ void UART_IRQHandler(UartHandler::Impl* handle)
 {
     HAL_UART_IRQHandler(&handle->huart_);
 
-    if(handle->listener_mode_
-       && __HAL_UART_GET_FLAG(&handle->huart_, UART_FLAG_IDLE))
+    /** THE IDLE FLAG IS ACKNOWLEDGED WHETHER OR NOT WE ARE STILL LISTENING.
+     *
+     *  IDLEIE stays enabled after listener_mode_ goes false, and three paths
+     *  clear that flag without touching the peripheral's interrupt enables:
+     *  HAL_UART_ErrorCallback() below drops it on ANY receive error, and
+     *  DmaReceiveStart() and DeInit() drop it in ordinary operation. Keeping
+     *  the ICR write behind listener_mode_ therefore leaves an ENABLED
+     *  interrupt whose sticky flag nothing ever acknowledges: the handler
+     *  returns, the peripheral immediately re-asserts, and the ISR re-enters
+     *  forever. Every lower-priority interrupt on the chip is starved,
+     *  SysTick included, so HAL_GetTick() stops advancing and everything
+     *  scheduled off it stops with it.
+     *
+     *  Measured on a Daisy Seed, 2026-09-21: a single framing error on an
+     *  otherwise idle MIDI DIN line wedged USART1 exactly this way. Seven of
+     *  seven debug halts landed inside this handler, HAL_GetTick() was
+     *  frozen, and the OLED -- whose repaint is gated on that tick -- still
+     *  held the random contents its panel powers up with, while DMA-driven
+     *  audio ran on undisturbed. No CPU fault: SCB HFSR and CFSR were both
+     *  zero. The peripheral simply never stopped asking.
+     *
+     *  Only the listener CALLBACK belongs behind listener_mode_. Clearing a
+     *  flag we asked the peripheral to raise is unconditional.
+     */
+    if(__HAL_UART_GET_FLAG(&handle->huart_, UART_FLAG_IDLE))
     {
-        /** find position, and call callback */
-        UART_CheckRxListener(handle);
+        if(handle->listener_mode_)
+        {
+            /** find position, and call callback */
+            UART_CheckRxListener(handle);
+        }
         /** Clear IDLE Interrupt flag */
         handle->huart_.Instance->ICR = UART_FLAG_IDLE;
     }
