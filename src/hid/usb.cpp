@@ -3,6 +3,7 @@
 #include "usbd_desc.h"
 #include "usbd_cdc.h"
 #include "usbd_cdc_if.h"
+#include <cstring>
 
 using namespace daisy;
 
@@ -13,8 +14,9 @@ extern "C"
 {
     // Globals from Cube generated version:
     // The HS device handle lives in SDRAM, not DTCM: most firmware never
-    // starts the HS port, and USBD_Init() sets the fields it later checks.
-    // Not zeroed at start-up.
+    // starts the HS port. SDRAM is not zeroed at start-up, so InitHS()
+    // zeroes it before USBD_Init() (classId, NumClasses and the class data
+    // slots are otherwise read uninitialised).
     USBD_HandleTypeDef hUsbDeviceHS __attribute__((section(".sdram_bss")));
     USBD_HandleTypeDef       hUsbDeviceFS;
     extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
@@ -64,6 +66,7 @@ static void DeinitFS()
 
 static void InitHS()
 {
+    memset(&hUsbDeviceHS, 0, sizeof(hUsbDeviceHS));
     // HS as FS
     if(USBD_Init(&hUsbDeviceHS, &HS_Desc, DEVICE_HS) != USBD_OK)
     {
