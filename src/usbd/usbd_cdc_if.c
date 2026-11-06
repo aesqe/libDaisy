@@ -100,11 +100,15 @@ uint8_t UserTxBufferFS[APP_TX_DATA_SIZE];
 
 /* Create buffer for reception and transmission           */
 /* It's up to user to redefine and/or remove those define */
+/* The HS (FS_EXTERNAL) buffers live in SDRAM, not DTCM: most firmware never
+ * starts the HS port, and the PCD runs with dma_enable = DISABLE, so the CPU
+ * copies to and from the FIFOs and no DMA engine writes them. Not zeroed at
+ * start-up; CDC writes each byte before it reads it. */
 /** Received data over USB are stored in this buffer      */
-uint8_t UserRxBufferHS[APP_RX_DATA_SIZE];
+uint8_t UserRxBufferHS[APP_RX_DATA_SIZE] __attribute__((section(".sdram_bss")));
 
 /** Data to send over USB CDC are stored in this buffer   */
-uint8_t UserTxBufferHS[APP_TX_DATA_SIZE];
+uint8_t UserTxBufferHS[APP_TX_DATA_SIZE] __attribute__((section(".sdram_bss")));
 
 /* USER CODE BEGIN PRIVATE_VARIABLES */
 CDC_ReceiveCallback rx_callback_fs = NULL;

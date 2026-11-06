@@ -12,7 +12,10 @@ static void UsbErrorHandler();
 extern "C"
 {
     // Globals from Cube generated version:
-    USBD_HandleTypeDef       hUsbDeviceHS;
+    // The HS device handle lives in SDRAM, not DTCM: most firmware never
+    // starts the HS port, and USBD_Init() sets the fields it later checks.
+    // Not zeroed at start-up.
+    USBD_HandleTypeDef hUsbDeviceHS __attribute__((section(".sdram_bss")));
     USBD_HandleTypeDef       hUsbDeviceFS;
     extern PCD_HandleTypeDef hpcd_USB_OTG_FS;
     extern PCD_HandleTypeDef hpcd_USB_OTG_HS;
