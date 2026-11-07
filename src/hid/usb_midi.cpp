@@ -298,10 +298,21 @@ void MidiUsbTransport::Impl::MidiToUsb(uint8_t* buffer, size_t size)
     while(status_index < size)
     {
         // Search for next status byte or end
+        // A SysEx run (F0 .. F7) stays whole: F7 has bit 7 set, so the plain
+        // scan would cut it off as a lone CIN 0x05 packet, a malformed sequence.
         size_t next_status = status_index;
+        const bool sysex   = buffer[status_index] == 0xF0;
         for(size_t j = status_index + 1; j < size; j++)
         {
-            if(buffer[j] & 0x80)
+            if(sysex)
+            {
+                if(buffer[j] == 0xF7)
+                {
+                    next_status = j + 1;
+                    break;
+                }
+            }
+            else if(buffer[j] & 0x80)
             {
                 next_status = j;
                 break;

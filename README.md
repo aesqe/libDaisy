@@ -37,6 +37,19 @@
 </p>
 
 
+## Foxtail fork
+
+Branch `foxtail-patches` carries these commits on top of upstream
+(`git log --oneline origin/master..foxtail-patches`):
+
+- Make SYSEX_BUFFER_LEN overridable at build time
+- SDRAM refresh: 2054 -> 761, so the array meets its 64 ms retention spec
+- Add a .axisram_bss section, so data can be placed in AXI SRAM
+- UART: always clear the IDLE flag, not only while listening
+- USB HS: CDC buffers and device handle in SDRAM, out of DTCM
+- USB HS: zero hUsbDeviceHS at the start of InitHS()
+- usb_midi: keep a SysEx whole through MidiToUsb (F7 was split into its own packet)
+
 libDaisy provides easy access to things such as Audio, Controls, GPIO, MIDI, USB communication, and more.
 
 ## Features
