@@ -49,7 +49,11 @@ class MidiUsbTransport
     void StartRx(MidiRxParseCallback callback, void* context);
     bool RxActive();
     void FlushRx();
-    void Tx(uint8_t* buffer, size_t size);
+    /** @return false when the IN endpoint stayed busy and the buffer was discarded */
+    bool Tx(uint8_t* buffer, size_t size);
+    /** @return true when a Tx would go out at once (the IN endpoint is idle);
+     *  false while busy or with no USB class data (unplugged) */
+    bool TxReady();
 
     class Impl;
 

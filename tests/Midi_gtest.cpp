@@ -23,10 +23,11 @@ class MidiTestTransport
     void   StartRx(){};
     size_t Readable() { return 1; }
     void   FlushRx() {}
-    void   Tx(uint8_t* buff, size_t size)
+    bool   Tx(uint8_t* buff, size_t size)
     {
         UNUSED(buff);
         UNUSED(size);
+        return true;
     }
     uint8_t Rx() { return 1; }
     bool    RxActive() { return true; }

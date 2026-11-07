@@ -7,6 +7,8 @@
 extern "C"
 {
     extern USBH_HandleTypeDef hUsbHostHS;
+    extern USBD_HandleTypeDef hUsbDeviceFS;
+    extern USBD_HandleTypeDef hUsbDeviceHS;
 }
 
 #define pUSB_Host &hUsbHostHS
@@ -28,7 +30,8 @@ class MidiUsbTransport::Impl
 
     bool RxActive() { return rx_active_; }
     void FlushRx() { rx_buffer_.Flush(); }
-    void Tx(uint8_t* buffer, size_t size);
+    bool Tx(uint8_t* buffer, size_t size);
+    bool TxReady();
 
     void UsbToMidi(uint8_t* buffer, uint8_t length);
     void MidiToUsb(uint8_t* buffer, size_t length);
@@ -127,10 +130,24 @@ void MidiUsbTransport::Impl::Init(Config config)
     }
 }
 
-void MidiUsbTransport::Impl::Tx(uint8_t* buffer, size_t size)
+bool MidiUsbTransport::Impl::TxReady()
+{
+    if(config_.periph == Config::HOST)
+        return true; // USBH_MIDI_Transmit reports BUSY itself
+    USBD_HandleTypeDef& dev
+        = config_.periph == Config::EXTERNAL ? hUsbDeviceHS : hUsbDeviceFS;
+    // No class data after an unplug: CDC_Transmit_* would dereference null.
+    const USBD_CDC_HandleTypeDef* hcdc
+        = (const USBD_CDC_HandleTypeDef*)dev.pClassData;
+    return hcdc != nullptr && hcdc->TxState == 0;
+}
+
+// False when every attempt found the endpoint busy and the buffer was discarded.
+bool MidiUsbTransport::Impl::Tx(uint8_t* buffer, size_t size)
 {
     int  attempt_count = config_.tx_retry_count;
     bool should_retry;
+    bool sent = false;
 
     MidiToUsb(buffer, size);
     do
@@ -139,6 +156,7 @@ void MidiUsbTransport::Impl::Tx(uint8_t* buffer, size_t size)
         {
             MIDI_ErrorTypeDef result;
             result       = USBH_MIDI_Transmit(pUSB_Host, tx_buffer_, tx_ptr_);
+            sent         = result == MIDI_OK;
             should_retry = (result == MIDI_BUSY) && attempt_count--;
         }
         else
@@ -148,6 +166,7 @@ void MidiUsbTransport::Impl::Tx(uint8_t* buffer, size_t size)
                 result = usb_handle_.TransmitExternal(tx_buffer_, tx_ptr_);
             else
                 result = usb_handle_.TransmitInternal(tx_buffer_, tx_ptr_);
+            sent = result == UsbHandle::Result::OK;
             should_retry
                 = (result == UsbHandle::Result::ERR) && attempt_count--;
         }
@@ -158,6 +177,7 @@ void MidiUsbTransport::Impl::Tx(uint8_t* buffer, size_t size)
     } while(should_retry);
 
     tx_ptr_ = 0;
+    return sent;
 }
 
 void MidiUsbTransport::Impl::UsbToMidi(uint8_t* buffer, uint8_t length)
@@ -367,7 +387,12 @@ void MidiUsbTransport::FlushRx()
     pimpl_->FlushRx();
 }
 
-void MidiUsbTransport::Tx(uint8_t* buffer, size_t size)
+bool MidiUsbTransport::Tx(uint8_t* buffer, size_t size)
 {
-    pimpl_->Tx(buffer, size);
+    return pimpl_->Tx(buffer, size);
+}
+
+bool MidiUsbTransport::TxReady()
+{
+    return pimpl_->TxReady();
 }

@@ -104,7 +104,10 @@ class MidiUartTransport
     inline void FlushRx() {}
 
     /** @brief sends the buffer of bytes out of the UART peripheral */
-    inline void Tx(uint8_t* buff, size_t size) { uart_.PollTx(buff, size); }
+    inline bool Tx(uint8_t* buff, size_t size)
+    {
+        return uart_.PollTx(buff, size) == UartHandler::Result::OK;
+    }
 
   private:
     UartHandler         uart_;
@@ -218,11 +221,15 @@ class MidiHandler
 
     /** SendMessage
     Send raw bytes as message
+    \return false when the transport discarded them
     */
-    void SendMessage(uint8_t* bytes, size_t size)
+    bool SendMessage(uint8_t* bytes, size_t size)
     {
-        transport_.Tx(bytes, size);
+        return transport_.Tx(bytes, size);
     }
+
+    /** True when a SendMessage would go out at once (transports that have TxReady) */
+    bool TxReady() { return transport_.TxReady(); }
 
     /** Feed in bytes to parser state machine from an external source.
         Populates internal FIFO queue with MIDI Messages.
