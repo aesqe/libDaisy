@@ -65,8 +65,15 @@
 /* USER CODE BEGIN PRIVATE_DEFINES */
 /* Define size for the receive and transmit buffer over CDC */
 /* It's up to user to redefine and/or remove those define */
+/* Overridable from the build: one USB packet (64 B at full speed) is the
+   most a receive ever holds here, and the transmit buffer is only the
+   initial pointer (transmits use the caller's buffer). */
+#ifndef APP_RX_DATA_SIZE
 #define APP_RX_DATA_SIZE 2048
+#endif
+#ifndef APP_TX_DATA_SIZE
 #define APP_TX_DATA_SIZE 2048
+#endif
 /* USER CODE END PRIVATE_DEFINES */
 
 /**
